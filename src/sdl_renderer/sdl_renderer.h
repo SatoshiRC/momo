@@ -19,6 +19,8 @@
 #include <rtc/video_track_receiver.h>
 #include <rtc_base/synchronization/mutex.h>
 
+#include "opencv2/opencv.hpp"
+
 class SDLRenderer : public VideoTrackReceiver {
  public:
   SDLRenderer(int width, int height, bool fullscreen);
@@ -92,6 +94,23 @@ class SDLRenderer : public VideoTrackReceiver {
   int height_;
   int rows_;
   int cols_;
+
+  //For OpenCV
+  cv::Mat mat_image_;
+  bool isFirstOpenCV;
+  std::vector<uint8_t> vec;
+  int num_pixsel_;
+  //色ごとのデータを格納する配列
+  std::vector<uint8_t> vec_R;
+  std::vector<uint8_t> vec_G;
+  std::vector<uint8_t> vec_B;
+  std::vector<uint8_t>::iterator it_R;
+  std::vector<uint8_t>::iterator it_G;
+  std::vector<uint8_t>::iterator it_B;
+  cv::Mat mat_R;
+  cv::Mat mat_G;
+  cv::Mat mat_B;
+  std::vector<cv::Mat> planes;
 };
 
 #endif

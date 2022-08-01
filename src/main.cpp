@@ -71,6 +71,9 @@ int main(int argc, char* argv[]) {
   int log_level = rtc::LS_NONE;
 
   Util::ParseArgs(argc, argv, use_test, use_ayame, use_sora, log_level, args);
+  args.use_sdl = true;
+  args.no_audio_device = true;
+  args.no_video_device = true;
 
   rtc::LogMessage::LogToDebug((rtc::LoggingSeverity)log_level);
   rtc::LogMessage::LogTimestamps();
@@ -94,78 +97,15 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
-#if USE_NVCODEC_ENCODER
-  // NvCodec が有効な環境で HW MJPEG デコーダを使う場合、CUDA が有効である必要がある
-  if (args.hw_mjpeg_decoder && cuda_context == nullptr) {
-    std::cerr << "Specified --hw-mjpeg-decoder=true but CUDA is invalid."
-              << std::endl;
-    return 2;
-  }
-#endif
-
   auto capturer = ([&]() -> rtc::scoped_refptr<ScalableVideoTrackSource> {
     if (args.no_video_device) {
       return nullptr;
     }
 
-#if USE_SCREEN_CAPTURER
-    if (args.screen_capture) {
-      RTC_LOG(LS_INFO) << "Screen capturer source list: "
-                       << ScreenVideoCapturer::GetSourceListString();
-      webrtc::DesktopCapturer::SourceList sources;
-      if (!ScreenVideoCapturer::GetSourceList(&sources)) {
-        RTC_LOG(LS_ERROR) << __FUNCTION__ << "Failed select screen source";
-        return nullptr;
-      }
-      auto size = args.GetSize();
-      return rtc::make_ref_counted<ScreenVideoCapturer>(
-          sources[0].id, size.width, size.height, args.framerate);
-    }
-#endif
-
     auto size = args.GetSize();
-#if defined(__APPLE__)
-    return MacCapturer::Create(size.width, size.height, args.framerate,
-                               args.video_device);
-#elif defined(__linux__)
-    V4L2VideoCapturerConfig v4l2_config;
-    v4l2_config.video_device = args.video_device;
-    v4l2_config.width = size.width;
-    v4l2_config.height = size.height;
-    v4l2_config.framerate = args.framerate;
-    v4l2_config.force_i420 = args.force_i420;
-    v4l2_config.use_native = args.hw_mjpeg_decoder;
 
-#if USE_MMAL_ENCODER
-    if (v4l2_config.use_native) {
-      MMALV4L2CapturerConfig mmal_config = v4l2_config;
-      // サイマルキャストの場合はネイティブフレームを出力しない
-      mmal_config.native_frame_output = !(use_sora && args.sora_simulcast);
-      return MMALV4L2Capturer::Create(std::move(mmal_config));
-    } else {
-      return V4L2VideoCapturer::Create(std::move(v4l2_config));
-    }
-#elif USE_JETSON_ENCODER
-    if (v4l2_config.use_native) {
-      return JetsonV4L2Capturer::Create(std::move(v4l2_config));
-    } else {
-      return V4L2VideoCapturer::Create(std::move(v4l2_config));
-    }
-#elif USE_NVCODEC_ENCODER
-    if (v4l2_config.use_native) {
-      NvCodecV4L2CapturerConfig nvcodec_config = v4l2_config;
-      nvcodec_config.cuda_context = cuda_context;
-      return NvCodecV4L2Capturer::Create(std::move(nvcodec_config));
-    } else {
-      return V4L2VideoCapturer::Create(std::move(v4l2_config));
-    }
-#else
-    return V4L2VideoCapturer::Create(std::move(v4l2_config));
-#endif
-#else
     return DeviceVideoCapturer::Create(size.width, size.height, args.framerate,
                                        args.video_device);
-#endif
   })();
 
   if (!capturer && !args.no_video_device) {
@@ -251,73 +191,6 @@ int main(int argc, char* argv[]) {
     MetricsServerConfig metrics_config;
     std::shared_ptr<StatsCollector> stats_collector;
 
-    if (use_sora) {
-      SoraClientConfig config;
-      config.insecure = args.insecure;
-      config.signaling_urls = args.sora_signaling_urls;
-      config.channel_id = args.sora_channel_id;
-      config.video = args.sora_video;
-      config.audio = args.sora_audio;
-      config.video_codec_type = args.sora_video_codec_type;
-      config.audio_codec_type = args.sora_audio_codec_type;
-      config.video_bit_rate = args.sora_video_bit_rate;
-      config.audio_bit_rate = args.sora_audio_bit_rate;
-      config.metadata = args.sora_metadata;
-      config.role = args.sora_role;
-      config.multistream = args.sora_multistream;
-      config.spotlight = args.sora_spotlight;
-      config.spotlight_number = args.sora_spotlight_number;
-      config.port = args.sora_port;
-      config.simulcast = args.sora_simulcast;
-      config.data_channel_signaling = args.sora_data_channel_signaling;
-      config.data_channel_signaling_timeout =
-          args.sora_data_channel_signaling_timeout;
-      config.ignore_disconnect_websocket =
-          args.sora_ignore_disconnect_websocket;
-      config.disconnect_wait_timeout = args.sora_disconnect_wait_timeout;
-      config.client_cert = args.client_cert;
-      config.client_key = args.client_key;
-      config.proxy_url = args.proxy_url;
-      config.proxy_username = args.proxy_username;
-      config.proxy_password = args.proxy_password;
-
-      sora_client =
-          SoraClient::Create(ioc, rtc_manager.get(), std::move(config));
-
-      // SoraServer を起動しない場合と、SoraServer を起動して --auto が指定されている場合は即座に接続する。
-      // SoraServer を起動するけど --auto が指定されていない場合、SoraServer の API が呼ばれるまで接続しない。
-      if (args.sora_port < 0 || args.sora_port >= 0 && args.sora_auto_connect) {
-        sora_client->Connect();
-      }
-
-      if (args.sora_port >= 0) {
-        SoraServerConfig config;
-        const boost::asio::ip::tcp::endpoint endpoint{
-            boost::asio::ip::make_address("127.0.0.1"),
-            static_cast<unsigned short>(args.sora_port)};
-        SoraServer::Create(ioc, endpoint, sora_client, rtc_manager.get(),
-                           config)
-            ->Run();
-      }
-
-      stats_collector = sora_client;
-    }
-
-    if (use_test) {
-      P2PServerConfig config;
-      config.no_google_stun = args.no_google_stun;
-      config.doc_root = args.test_document_root;
-
-      const boost::asio::ip::tcp::endpoint endpoint{
-          boost::asio::ip::make_address("0.0.0.0"),
-          static_cast<unsigned short>(args.test_port)};
-      p2p_server = P2PServer::Create(ioc, endpoint, rtc_manager.get(),
-                                     std::move(config));
-      p2p_server->Run();
-
-      stats_collector = p2p_server;
-    }
-
     if (use_ayame) {
       AyameClientConfig config;
       config.insecure = args.insecure;
@@ -336,33 +209,18 @@ int main(int argc, char* argv[]) {
       stats_collector = ayame_client;
     }
 
-    if (args.metrics_port >= 0) {
-      const boost::asio::ip::tcp::endpoint metrics_endpoint{
-          boost::asio::ip::make_address(
-              args.metrics_allow_external_ip ? "0.0.0.0" : "127.0.0.1"),
-          static_cast<unsigned short>(args.metrics_port)};
-      MetricsServer::Create(ioc, metrics_endpoint, rtc_manager.get(),
-                            stats_collector, std::move(metrics_config))
-          ->Run();
-    }
+    sdl_renderer->SetDispatchFunction([&ioc](std::function<void()> f) {
+      if (ioc.stopped())
+        return;
+      boost::asio::dispatch(ioc.get_executor(), f);
+      //画像表示の直前から呼ばれる．
+    });
 
-#if USE_SDL2
-    if (sdl_renderer) {
-      sdl_renderer->SetDispatchFunction([&ioc](std::function<void()> f) {
-        if (ioc.stopped())
-          return;
-        boost::asio::dispatch(ioc.get_executor(), f);
-      });
-
-      ioc.run();
-
-      sdl_renderer->SetDispatchFunction(nullptr);
-    } else {
-      ioc.run();
-    }
-#else
+    //ここからウインドウに画像を表示する
     ioc.run();
-#endif
+
+    //ここでウインドウ削除時の処理
+    sdl_renderer->SetDispatchFunction(nullptr);
   }
 
   //この順番は綺麗に落ちるけど、あまり安全ではない

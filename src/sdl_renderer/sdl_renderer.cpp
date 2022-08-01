@@ -9,6 +9,10 @@
 #include <third_party/libyuv/include/libyuv/convert_from.h>
 #include <third_party/libyuv/include/libyuv/video_common.h>
 
+#include "opencv2/core/core.hpp"
+#include "opencv2/core/types_c.h"
+#include "opencv2/opencv.hpp"
+
 #define STD_ASPECT 1.33
 #define WIDE_ASPECT 1.78
 #define FRAME_INTERVAL (1000 / 30)
@@ -40,18 +44,9 @@ SDLRenderer::SDLRenderer(int width, int height, bool fullscreen)
   if (fullscreen) {
     SetFullScreen(true);
   }
-
-#if defined(__APPLE__)
-  // Apple Silicon Mac + macOS 11.0 だと、
-  // SDL_CreateRenderer をメインスレッドで呼ばないとエラーになる
-  renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
-  if (renderer_ == nullptr) {
-    RTC_LOG(LS_ERROR) << __FUNCTION__ << ": SDL_CreateRenderer failed "
-                      << SDL_GetError();
-    return;
-  }
-#endif
-
+  mat_image_ = cv::Mat::zeros(480, 640, CV_8UC3);
+  planes.resize(3);
+  // cv::namedWindow("image");
   thread_ = SDL_CreateThread(SDLRenderer::RenderThreadExec, "Render", this);
 }
 
@@ -132,6 +127,7 @@ int SDLRenderer::RenderThread() {
   SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
 
   uint32_t start_time, duration;
+  printf("render\n");
   while (running_) {
     start_time = SDL_GetTicks();
     {
@@ -151,8 +147,45 @@ int SDLRenderer::RenderThread() {
         if (width == 0 || height == 0)
           continue;
 
+        int num_pixsel_ = height * width;
+        vec_R.resize(num_pixsel_);
+        vec_G.resize(num_pixsel_);
+        vec_B.resize(num_pixsel_);
+
+        uint8_t* image_ = sink->GetImage();
+        vec = std::vector<uint8_t>(image_, image_ + (num_pixsel_ * 4));
+
+        //元配列から各色の配列にデータを分配
+        it_R = vec_R.begin();
+        it_G = vec_G.begin();
+        it_B = vec_B.begin();
+        for (std::vector<uint8_t>::iterator it = vec.begin(), e = vec.end();
+             it < e; it += 4, it_R++, it_G++, it_B++) {
+          *it_R = *(it + 2);
+          *it_G = *(it + 0);
+          *it_B = *(it + 1);
+        }
+        // std::cout << std::to_string(vec_R.size()) << "\t" << height << "\t"
+        //           << width << std::endl;
+        // std::cout << std::to_string(vec[0]) << std::endl;
+        // // 配列からcv::Matに変換
+        mat_R = cv::Mat(height, width, CV_8UC1, vec_R.data());
+        mat_G = cv::Mat(height, width, CV_8UC1, vec_G.data());
+        mat_B = cv::Mat(height, width, CV_8UC1, vec_B.data());
+        // //cv::Matの合成
+        planes = {mat_G, mat_B, mat_R};
+        cv::merge(planes, mat_image_);
+
+        // int pitch = mat_image_.channels() * mat_image_.size().width;
+        // // IplImage image = mat_image_;
         SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
-            sink->GetImage(), width, height, 32, width * 4, 0, 0, 0, 0);
+            (void*)mat_image_.data, mat_image_.cols, mat_image_.rows, 24,
+            mat_image_.cols * 3, 0xff0000, 0x00ff00, 0x0000ff, 0);
+
+        // // cv::imshow("image", mat_image_);
+
+        // SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(
+        //     sink->GetImage(), width, height, 32, width * 4, 0, 0, 0, 0);
         SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
         SDL_FreeSurface(surface);
 
@@ -256,6 +289,28 @@ void SDLRenderer::Sink::OnFrame(const webrtc::VideoFrame& frame) {
       buffer_if->StrideU(), buffer_if->DataV(), buffer_if->StrideV(),
       image_.get(), (scaled_ ? width_ : input_width_) * 4, buffer_if->width(),
       buffer_if->height(), libyuv::FOURCC_ARGB);
+
+  // vec = std::vector<uint8_t>(image_.get(), image_.get() + (num_pixsel_ * 4));
+
+  // //元配列から各色の配列にデータを分配
+  // it_R = vec_R.begin();
+  // it_G = vec_G.begin();
+  // it_B = vec_B.begin();
+  // for (std::vector<uint8_t>::iterator it = vec.begin(), e = vec.end(); it < e;
+  //      it += 4, it_R++, it_G++, it_B++) {
+  //   *it_R = *(it + 2);
+  //   *it_G = *(it + 0);
+  //   *it_B = *(it + 1);
+  // }
+
+  // //配列からcv::Matに変換
+  // mat_R = cv::Mat(height_, width_, CV_8UC1, vec_R.data());
+  // mat_G = cv::Mat(height_, width_, CV_8UC1, vec_G.data());
+  // mat_B = cv::Mat(height_, width_, CV_8UC1, vec_B.data());
+
+  // //cv::Matの合成
+  // planes = {mat_G, mat_B, mat_R};
+  // cv::merge(planes, mat_image_);
 }
 
 void SDLRenderer::Sink::SetOutlineRect(int x, int y, int width, int height) {

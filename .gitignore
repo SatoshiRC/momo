@@ -42,6 +42,7 @@ webrtc_logs_0
 /_source
 /_install
 /_package
+/_cache
 /build/windows_*/_source
 /build/windows_*/_build
 /build/windows_*/_install

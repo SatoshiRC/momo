@@ -213,7 +213,6 @@ int main(int argc, char* argv[]) {
       if (ioc.stopped())
         return;
       boost::asio::dispatch(ioc.get_executor(), f);
-      //画像表示の直前から呼ばれる．
     });
 
     //ここからウインドウに画像を表示する

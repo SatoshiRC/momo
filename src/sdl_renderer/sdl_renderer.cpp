@@ -127,7 +127,6 @@ int SDLRenderer::RenderThread() {
   SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
 
   uint32_t start_time, duration;
-  printf("render\n");
   while (running_) {
     start_time = SDL_GetTicks();
     {

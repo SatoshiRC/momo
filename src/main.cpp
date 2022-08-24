@@ -51,6 +51,8 @@
 #include "cuda/cuda_context.h"
 #endif
 
+#include "copter_auto_pilot/copter_auto_pilot.hpp"
+
 const size_t kDefaultMaxLogFileSize = 10 * 1024 * 1024;
 
 int main(int argc, char* argv[]) {
@@ -78,6 +80,9 @@ int main(int argc, char* argv[]) {
   rtc::LogMessage::LogToDebug((rtc::LoggingSeverity)log_level);
   rtc::LogMessage::LogTimestamps();
   rtc::LogMessage::LogThreads();
+
+  std::shared_ptr<copter_auto_pilot> autoPilot;
+  autoPilot.reset(new copter_auto_pilot());
 
   std::unique_ptr<rtc::FileRotatingLogSink> log_sink(
       new rtc::FileRotatingLogSink("./", "webrtc_logs", kDefaultMaxLogFileSize,

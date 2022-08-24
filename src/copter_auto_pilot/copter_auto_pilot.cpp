@@ -1,4 +1,4 @@
-#include "copter_auto_pilot/copter_auto_pilot.hpp"
+﻿#include "copter_auto_pilot/copter_auto_pilot.hpp"
 
 copter_auto_pilot::copter_auto_pilot() {
   thread_ARTag = nullptr;
@@ -111,4 +111,35 @@ void copter_auto_pilot::autoModeTask() {
   }
   thread_autoModeTask.reset(
       new std::thread(&copter_auto_pilot::autoModeTask, this));
+}
+
+void copter_auto_pilot::handleImage_ARTag() {
+  cv::Mat outputArry;
+
+  std::vector<int> ids;
+
+  std::vector<std::vector<cv::Point2f>> corners;
+  cv::aruco::detectMarkers(imageForARtag, dictionary, corners, ids);
+
+  // if at least one marker detected
+  if (ids.size() > 0) {
+    cv::aruco::drawDetectedMarkers(imageForARtag, corners, ids);
+    std::vector<cv::Vec3d> rvecs, tvecs;
+    cv::aruco::estimatePoseSingleMarkers(corners, 0.200, cameraMatrix,
+                                         distCoeffs, rvecs, tvecs, outputArry);
+
+    // draw axis for each marker
+    for (int i = 0; i < ids.size(); i++)
+      cv::drawFrameAxes(imageForARtag, cameraMatrix, distCoeffs, rvecs[i], tvecs[i],
+                        0.1);  //evecs回転　tvecs並進
+
+    //チェック
+    if (tvecs.size() > 0) {
+      for (int i = 0; i < 2; i++) {
+        tvecs.at(0)[i] = -tvecs.at(0)[i];
+      }
+
+      std::cout << "[x,y,z]=" << tvecs[0] << "\n";
+    }
+  }
 }

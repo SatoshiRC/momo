@@ -159,7 +159,7 @@ int main(int argc, char* argv[]) {
   std::unique_ptr<SDLRenderer> sdl_renderer = nullptr;
   if (args.use_sdl) {
     sdl_renderer.reset(new SDLRenderer(args.window_width, args.window_height,
-                                       args.fullscreen));
+                                       args.fullscreen, autoPilot));
   }
 
   std::unique_ptr<RTCManager> rtc_manager(new RTCManager(

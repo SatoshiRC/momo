@@ -59,7 +59,7 @@ copter_auto_pilot::copter_auto_pilot() {
 
   passthrough.get()->subscribe_message((uint16_t)MAVLINK_MESSAGE_ID::RC_CHANNELS,
                                        [this](const mavlink_message_t& message){
-    this->isAutoMode(mavlink_msg_rc_channels_get_chan7_raw(&message) >= 2000);});
+    this->isAutoMode(mavlink_msg_rc_channels_get_chan7_raw(&message) >= 1500);});
 
   telemetry.get()->subscribe_position([this](mavsdk::Telemetry::Position position) {
     std::cout << "Altitude: " << position.relative_altitude_m << " m\n";

@@ -83,9 +83,11 @@ class copter_auto_pilot {
   std::shared_ptr<mavsdk::MavlinkPassthrough> passthrough;
 
   enum class MAVLINK_MESSAGE_ID : uint16_t{
-    RC_CHANNELS_RAW = 35,
+    HEARTBEAT = 0, 
+    RC_CHANNELS_RAW = 65,
     DISTANCE_SENSOR = 132,
     ATTITUDE = 30,
+    ALTITUDE = 141,
 
   };
 };

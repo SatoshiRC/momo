@@ -57,7 +57,7 @@ copter_auto_pilot::copter_auto_pilot() {
   mocap.reset(new mavsdk::Mocap(system));
   passthrough.reset(new mavsdk::MavlinkPassthrough(system));
 
-  passthrough.get()->subscribe_message((uint16_t)MAVLINK_MESSAGE_ID::RC_CHANNELS_RAW,
+  passthrough.get()->subscribe_message((uint16_t)MAVLINK_MESSAGE_ID::RC_CHANNELS,
                                        [this](const mavlink_message_t& message){
     this->isAutoMode(mavlink_msg_rc_channels_get_chan7_raw(&message) >= 2000);});
 

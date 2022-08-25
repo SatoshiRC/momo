@@ -84,7 +84,7 @@ class copter_auto_pilot {
 
   enum class MAVLINK_MESSAGE_ID : uint16_t{
     HEARTBEAT = 0, 
-    RC_CHANNELS_RAW = 65,
+    RC_CHANNELS = 65,
     DISTANCE_SENSOR = 132,
     ATTITUDE = 30,
     ALTITUDE = 141,

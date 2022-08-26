@@ -74,8 +74,6 @@ class copter_auto_pilot {
   std::mutex mutex_autoModeTask;
   std::condition_variable cond_autoModeTask;
 
-  std::shared_ptr<std::thread> thread_ARTag;
-  std::shared_ptr<std::thread> thread_Line;
   std::shared_ptr<std::thread> thread_mainTask;
   std::shared_ptr<std::thread> thread_autoModeTask;
 

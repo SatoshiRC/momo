@@ -63,19 +63,13 @@ class copter_auto_pilot {
   result_handleImage result_ARTag;
   result_handleImage result_Line;
 
-    const cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << 939.58838,
-                                0,
-                                719.5,
-                                0,
-                                939.58838,
-                                539.5,
-                                0,
-                                0,
-                                1);
+    const cv::Mat cameraMatrix =
+      (cv::Mat_<double>(3, 3) << 1062.2296, 0, 719.5, 0, 1062.2296, 539.5,
+       0, 0, 1);
   const cv::Mat distCoeffs =
-      (cv::Mat_<double>(1, 5) << -0.23275, 0.144761, 0, 0, 0);
+        (cv::Mat_<double>(1, 5) << -0.260092, 0.0655098, 0, 0, 0);
   const cv::Ptr<cv::aruco::Dictionary> dictionary =
-      cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+      cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 
   std::mutex mutex_autoModeTask;
   std::condition_variable cond_autoModeTask;

@@ -130,16 +130,62 @@ void copter_auto_pilot::handleImage_ARTag() {
 
     // draw axis for each marker
     for (int i = 0; i < ids.size(); i++)
-      cv::drawFrameAxes(imageForARtag, cameraMatrix, distCoeffs, rvecs[i], tvecs[i],
+      cv::drawFrameAxes(imageForARtag, cameraMatrix, distCoeffs, rvecs[i],
+                        tvecs[i],
                         0.1);  //evecs回転　tvecs並進
+
+    //rvecs,tvces --  std::vector → cv::Mat  (y,x)
+
+    cv::Mat rvecs_Mat = (cv::Mat_<float>(1, 3) << rvecs.at(0)[0],
+                         rvecs.at(0)[1], rvecs.at(0)[2]);
+    cv::Mat tvecs_Mat = (cv::Mat_<float>(1, 3) << tvecs.at(0)[0],
+                         tvecs.at(0)[1], tvecs.at(0)[2]);
+    cv::Mat vector3_0 = (cv::Mat_<float>(1, 3) << 0, 0, 0);
+
+    //初期化
+    cv::Mat R = cv::Mat::eye(3, 3, CV_32F), Rt = cv::Mat::eye(3, 3, CV_32F);
+    cv::Mat MarkerToCameraPosition;  // = (cv::Mat_<float>(1, 3) << 0, 0, 0);
+
+    //ロドリゲス変換 カメラ座標系のrvecsをマーカー座標系に変換------------------------------------------------------
+    cv::Rodrigues(rvecs_Mat, Rt);
+    R = Rt.t();
+
+    //エラー回避の関係で　縦ベクトル+他0の3*3
+    tvecs_Mat = (cv::Mat_<float>(3, 3) << tvecs.at(0)[0], 0, 0, tvecs.at(0)[1],
+                 0, 0, tvecs.at(0)[2], 0, 0);
+
+    MarkerToCameraPosition = (-R) * (tvecs_Mat);
+
+    result_ARTag.positionEstimate.position_body.x_m = MarkerToCameraPosition.at<float>(0, 0);
+    result_ARTag.positionEstimate.position_body.y_m =
+        MarkerToCameraPosition.at<float>(1, 0);
+    result_ARTag.positionEstimate.position_body.z_m =
+        MarkerToCameraPosition.at<float>(2, 0);
+    result_ARTag.positionEstimate.angle_body.roll_rad = std::atan2(
+        static_cast<float>(-(R.at<float>(2, 1))),
+        static_cast<float>(R.at<float>(2, 2)));  //コンパイルエラー対策
+    result_ARTag.positionEstimate.angle_body.pitch_rad =
+        std::asin(static_cast<float>(R.at<float>(2, 0)));
+    result_ARTag.positionEstimate.angle_body.yaw_rad =
+        std::atan2(static_cast<float>(-(R.at<float>(1, 0))),
+                          static_cast<float>(R.at<float>(0, 0)));
 
     //チェック
     if (tvecs.size() > 0) {
-      for (int i = 0; i < 2; i++) {
-        tvecs.at(0)[i] = -tvecs.at(0)[i];
-      }
 
-      std::cout << "[x,y,z]=" << tvecs[0] << "\n";
+      std::cout << "[x]=" << result_ARTag.positionEstimate.position_body.x_m
+                << "\t";
+      std::cout << "[y]=" << result_ARTag.positionEstimate.position_body.y_m
+                << "\t";
+      std::cout << "[z]=" << result_ARTag.positionEstimate.position_body.z_m
+                << "\t";
+      std::cout << "[roll]=" << result_ARTag.positionEstimate.angle_body.roll_rad
+                << "\t";
+      std::cout << "[pitch]=" << result_ARTag.positionEstimate.angle_body.pitch_rad
+                << "\t";
+      std::cout << "[yaw]=" << result_ARTag.positionEstimate.angle_body.yaw_rad
+                << "\n";
+      //std::cout << MarkerToCameraPosition << std::endl;
     }
   }
 }

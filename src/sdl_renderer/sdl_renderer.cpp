@@ -177,8 +177,10 @@ int SDLRenderer::RenderThread() {
         // //cv::Matの合成
         planes = {mat_G, mat_B, mat_R};
         cv::merge(planes, mat_image_);
-        autoPilot_.get()->setImage(mat_image_);
 
+        if (!mat_image_.empty()) {
+          autoPilot_.get()->setImage(mat_image_);
+        }
         // int pitch = mat_image_.channels() * mat_image_.size().width;
         // // IplImage image = mat_image_;
         SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(

@@ -55,6 +55,8 @@ class copter_auto_pilot {
   */
   void handleImage_Line(){};
 
+  void estimatePosition();
+
   class result_handleImage {
     int32_t x;
     int32_t y;

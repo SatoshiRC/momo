@@ -61,6 +61,7 @@ class copter_auto_pilot {
   struct result_handleImage {
     mavsdk::Mocap::VisionPositionEstimate positionEstimate;
     bool isValid=false;
+    std::mutex mutex_;
   };
   result_handleImage result_ARTag;
   result_handleImage result_Line;

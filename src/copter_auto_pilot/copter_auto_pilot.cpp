@@ -154,20 +154,23 @@ void copter_auto_pilot::handleImage_ARTag() {
 
     MarkerToCameraPosition = (-R) * (tvecs_Mat);
 
-    result_ARTag.positionEstimate.position_body.x_m = MarkerToCameraPosition.at<float>(0, 0);
-    result_ARTag.positionEstimate.position_body.y_m =
-        MarkerToCameraPosition.at<float>(1, 0);
-    result_ARTag.positionEstimate.position_body.z_m =
-        MarkerToCameraPosition.at<float>(2, 0);
-    result_ARTag.positionEstimate.angle_body.roll_rad = std::atan2(
-        static_cast<float>(-(R.at<float>(2, 1))),
-        static_cast<float>(R.at<float>(2, 2)));  //コンパイルエラー対策
-    result_ARTag.positionEstimate.angle_body.pitch_rad =
-        std::asin(static_cast<float>(R.at<float>(2, 0)));
-    result_ARTag.positionEstimate.angle_body.yaw_rad =
-        std::atan2(static_cast<float>(-(R.at<float>(1, 0))),
-                          static_cast<float>(R.at<float>(0, 0)));
 
+    {
+        std::unique_lock<std::mutex> lock(result_ARTag.mutex_);
+        result_ARTag.positionEstimate.position_body.x_m = MarkerToCameraPosition.at<float>(0, 0);
+        result_ARTag.positionEstimate.position_body.y_m =
+            MarkerToCameraPosition.at<float>(1, 0);
+        result_ARTag.positionEstimate.position_body.z_m =
+            MarkerToCameraPosition.at<float>(2, 0);
+        result_ARTag.positionEstimate.angle_body.roll_rad = std::atan2(
+            static_cast<float>(-(R.at<float>(2, 1))),
+            static_cast<float>(R.at<float>(2, 2)));  //コンパイルエラー対策
+        result_ARTag.positionEstimate.angle_body.pitch_rad =
+            std::asin(static_cast<float>(R.at<float>(2, 0)));
+        result_ARTag.positionEstimate.angle_body.yaw_rad =
+            std::atan2(static_cast<float>(-(R.at<float>(1, 0))),
+            static_cast<float>(R.at<float>(0, 0)));
+    }
     //チェック
     if (tvecs.size() > 0) {
 

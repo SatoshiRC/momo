@@ -17,7 +17,10 @@
 #define WIDE_ASPECT 1.78
 #define FRAME_INTERVAL (1000 / 30)
 
-SDLRenderer::SDLRenderer(int width, int height, bool fullscreen)
+SDLRenderer::SDLRenderer(int width,
+                         int height,
+                         bool fullscreen,
+                         std::shared_ptr<copter_auto_pilot> autoPilot)
     : running_(true),
       window_(nullptr),
       renderer_(nullptr),
@@ -25,7 +28,7 @@ SDLRenderer::SDLRenderer(int width, int height, bool fullscreen)
       width_(width),
       height_(height),
       rows_(1),
-      cols_(1) {
+      cols_(1), autoPilot_(autoPilot) {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     RTC_LOG(LS_ERROR) << __FUNCTION__ << ": SDL_Init failed " << SDL_GetError();
     return;
@@ -175,6 +178,9 @@ int SDLRenderer::RenderThread() {
         planes = {mat_G, mat_B, mat_R};
         cv::merge(planes, mat_image_);
 
+        if (!mat_image_.empty()) {
+          autoPilot_.get()->setImage(mat_image_);
+        }
         // int pitch = mat_image_.channels() * mat_image_.size().width;
         // // IplImage image = mat_image_;
         SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(

@@ -15,6 +15,7 @@
 #include "mavsdk/plugins/telemetry/telemetry.h"
 #include "mavlink_include.h"
 #include "opencv2/opencv.hpp"
+#include "opencv2/aruco.hpp"
 
 class copter_auto_pilot {
  public:
@@ -48,7 +49,7 @@ class copter_auto_pilot {
   /*
     ARマーカーを検知するタスク
   */
-  void handleImage_ARTag(){};
+  void handleImage_ARTag();
 
   /*
     白線を検知するタスク
@@ -57,17 +58,24 @@ class copter_auto_pilot {
 
   void estimatePosition();
 
-  class result_handleImage {
-    int32_t x;
-    int32_t y;
-    float z;
+  struct result_handleImage {
+    mavsdk::Mocap::VisionPositionEstimate positionEstimate;
+    bool isValid=false;
   };
+  result_handleImage result_ARTag;
+  result_handleImage result_Line;
+
+    const cv::Mat cameraMatrix =
+      (cv::Mat_<double>(3, 3) << 1062.2296, 0, 719.5, 0, 1062.2296, 539.5,
+       0, 0, 1);
+  const cv::Mat distCoeffs =
+        (cv::Mat_<double>(1, 5) << -0.260092, 0.0655098, 0, 0, 0);
+  const cv::Ptr<cv::aruco::Dictionary> dictionary =
+      cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 
   std::mutex mutex_autoModeTask;
   std::condition_variable cond_autoModeTask;
 
-  std::shared_ptr<std::thread> thread_ARTag;
-  std::shared_ptr<std::thread> thread_Line;
   std::shared_ptr<std::thread> thread_mainTask;
   std::shared_ptr<std::thread> thread_autoModeTask;
 
@@ -85,7 +93,7 @@ class copter_auto_pilot {
   std::shared_ptr<mavsdk::MavlinkPassthrough> passthrough;
 
   enum class MAVLINK_MESSAGE_ID : uint16_t{
-    HEARTBEAT = 0, 
+    HEARTBEAT = 0,
     RC_CHANNELS = 65,
     DISTANCE_SENSOR = 132,
     ATTITUDE = 30,

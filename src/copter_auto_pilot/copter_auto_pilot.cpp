@@ -1,9 +1,6 @@
-#include "copter_auto_pilot/copter_auto_pilot.hpp"
+﻿#include "copter_auto_pilot/copter_auto_pilot.hpp"
 
 copter_auto_pilot::copter_auto_pilot() {
-  thread_ARTag = nullptr;
-  thread_Line = nullptr;
-
   imageForARtag = cv::Mat(480, 640, CV_8UC3);
   imageForLine = cv::Mat(480, 640, CV_8UC3);
 
@@ -80,8 +77,6 @@ copter_auto_pilot::~copter_auto_pilot() {
   thread_autoModeTask.get()->detach();
   thread_autoModeTask.get()->~thread();
 
-  thread_ARTag.get()->~thread();
-  thread_Line.get()->~thread();
   thread_mainTask.get()->detach();
   thread_mainTask.get()->~thread();
 }
@@ -90,13 +85,8 @@ void copter_auto_pilot::setImage(cv::Mat& sourceImage) {
   imageForARtag = sourceImage.clone();
   imageForLine = sourceImage.clone();
 
-  thread_ARTag.reset(
-      new std::thread(&copter_auto_pilot::handleImage_ARTag, this));
-  thread_ARTag.reset(
-      new std::thread(&copter_auto_pilot::handleImage_Line, this));
-
-  thread_ARTag.get()->detach();
-  thread_Line.get()->detach();
+  std::thread(&copter_auto_pilot::handleImage_ARTag, this).detach();
+  std::thread(&copter_auto_pilot::handleImage_Line, this).detach();
 }
 
 void copter_auto_pilot::mainTask() {
@@ -120,3 +110,80 @@ void copter_auto_pilot::estimatePosition() {
   while (isAutoMode_) {
   }
  }
+
+void copter_auto_pilot::handleImage_ARTag() {
+  cv::Mat outputArry;
+
+  std::vector<int> ids;
+
+  std::vector<std::vector<cv::Point2f>> corners;
+  cv::aruco::detectMarkers(imageForARtag, dictionary, corners, ids);
+
+  // if at least one marker detected
+  if (ids.size() > 0) {
+    cv::aruco::drawDetectedMarkers(imageForARtag, corners, ids);
+    std::vector<cv::Vec3d> rvecs, tvecs;
+    cv::aruco::estimatePoseSingleMarkers(corners, 0.200, cameraMatrix,
+                                         distCoeffs, rvecs, tvecs, outputArry);
+
+    // draw axis for each marker
+    for (int i = 0; i < ids.size(); i++)
+      cv::drawFrameAxes(imageForARtag, cameraMatrix, distCoeffs, rvecs[i],
+                        tvecs[i],
+                        0.1);  //evecs回転　tvecs並進
+
+    //rvecs,tvces --  std::vector → cv::Mat  (y,x)
+
+    cv::Mat rvecs_Mat = (cv::Mat_<float>(1, 3) << rvecs.at(0)[0],
+                         rvecs.at(0)[1], rvecs.at(0)[2]);
+    cv::Mat tvecs_Mat = (cv::Mat_<float>(1, 3) << tvecs.at(0)[0],
+                         tvecs.at(0)[1], tvecs.at(0)[2]);
+    cv::Mat vector3_0 = (cv::Mat_<float>(1, 3) << 0, 0, 0);
+
+    //初期化
+    cv::Mat R = cv::Mat::eye(3, 3, CV_32F), Rt = cv::Mat::eye(3, 3, CV_32F);
+    cv::Mat MarkerToCameraPosition;  // = (cv::Mat_<float>(1, 3) << 0, 0, 0);
+
+    //ロドリゲス変換 カメラ座標系のrvecsをマーカー座標系に変換------------------------------------------------------
+    cv::Rodrigues(rvecs_Mat, Rt);
+    R = Rt.t();
+
+    //エラー回避の関係で　縦ベクトル+他0の3*3
+    tvecs_Mat = (cv::Mat_<float>(3, 3) << tvecs.at(0)[0], 0, 0, tvecs.at(0)[1],
+                 0, 0, tvecs.at(0)[2], 0, 0);
+
+    MarkerToCameraPosition = (-R) * (tvecs_Mat);
+
+    result_ARTag.positionEstimate.position_body.x_m = MarkerToCameraPosition.at<float>(0, 0);
+    result_ARTag.positionEstimate.position_body.y_m =
+        MarkerToCameraPosition.at<float>(1, 0);
+    result_ARTag.positionEstimate.position_body.z_m =
+        MarkerToCameraPosition.at<float>(2, 0);
+    result_ARTag.positionEstimate.angle_body.roll_rad = std::atan2(
+        static_cast<float>(-(R.at<float>(2, 1))),
+        static_cast<float>(R.at<float>(2, 2)));  //コンパイルエラー対策
+    result_ARTag.positionEstimate.angle_body.pitch_rad =
+        std::asin(static_cast<float>(R.at<float>(2, 0)));
+    result_ARTag.positionEstimate.angle_body.yaw_rad =
+        std::atan2(static_cast<float>(-(R.at<float>(1, 0))),
+                          static_cast<float>(R.at<float>(0, 0)));
+
+    //チェック
+    if (tvecs.size() > 0) {
+
+      std::cout << "[x]=" << result_ARTag.positionEstimate.position_body.x_m
+                << "\t";
+      std::cout << "[y]=" << result_ARTag.positionEstimate.position_body.y_m
+                << "\t";
+      std::cout << "[z]=" << result_ARTag.positionEstimate.position_body.z_m
+                << "\t";
+      std::cout << "[roll]=" << result_ARTag.positionEstimate.angle_body.roll_rad
+                << "\t";
+      std::cout << "[pitch]=" << result_ARTag.positionEstimate.angle_body.pitch_rad
+                << "\t";
+      std::cout << "[yaw]=" << result_ARTag.positionEstimate.angle_body.yaw_rad
+                << "\n";
+      //std::cout << MarkerToCameraPosition << std::endl;
+    }
+  }
+}

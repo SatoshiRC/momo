@@ -21,9 +21,11 @@
 
 #include "opencv2/opencv.hpp"
 
+#include "copter_auto_pilot/copter_auto_pilot.hpp"
+
 class SDLRenderer : public VideoTrackReceiver {
  public:
-  SDLRenderer(int width, int height, bool fullscreen);
+  SDLRenderer(int width, int height, bool fullscreen, std::shared_ptr<copter_auto_pilot> autoPilot);
   ~SDLRenderer();
 
   void SetDispatchFunction(std::function<void(std::function<void()>)> dispatch);
@@ -111,6 +113,8 @@ class SDLRenderer : public VideoTrackReceiver {
   cv::Mat mat_G;
   cv::Mat mat_B;
   std::vector<cv::Mat> planes;
+
+  std::shared_ptr<copter_auto_pilot> autoPilot_;
 };
 
 #endif

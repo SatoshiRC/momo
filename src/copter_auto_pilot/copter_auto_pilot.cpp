@@ -95,11 +95,11 @@ void copter_auto_pilot::mainTask() {
 }
 
 void copter_auto_pilot::autoModeTask() {
-  std::unique_lock<std::mutex> lock(mutex_autoModeTask);
-  cond_autoModeTask.wait(lock, [this] { return this->isAutoMode_; });
+  std::unique_lock<std::mutex> lock(isAutoMode_.mutex_autoModeTask);
+  isAutoMode_.cond_autoModeTask.wait(lock, [this] { return this->isAutoMode_==true; });
 
   std::thread(&copter_auto_pilot::estimatePosition, this);
-  while (isAutoMode_) {
+  while (isAutoMode_==true) {
 
   }
   thread_autoModeTask.reset(
@@ -107,7 +107,7 @@ void copter_auto_pilot::autoModeTask() {
 }
 
 void copter_auto_pilot::estimatePosition() {
-  while (isAutoMode_) {
+  while (isAutoMode_==true) {
   }
  }
 

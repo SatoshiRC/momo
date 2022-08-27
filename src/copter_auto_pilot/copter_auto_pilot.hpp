@@ -73,8 +73,7 @@ class copter_auto_pilot {
   const cv::Ptr<cv::aruco::Dictionary> dictionary =
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 
-  std::mutex mutex_autoModeTask;
-  std::condition_variable cond_autoModeTask;
+
 
   std::shared_ptr<std::thread> thread_mainTask;
   std::shared_ptr<std::thread> thread_autoModeTask;
@@ -82,7 +81,14 @@ class copter_auto_pilot {
   cv::Mat imageForARtag;
   cv::Mat imageForLine;
 
-  bool isAutoMode_;
+
+  struct  {
+    std::mutex mutex_autoModeTask;
+    std::condition_variable cond_autoModeTask;
+    bool isAutoMode_;
+    bool operator==(bool arg) { return isAutoMode_ == arg; }
+    void operator=(bool arg) { isAutoMode_ = arg; }
+  } isAutoMode_;
 
   //For MAVSDK
   std::shared_ptr<mavsdk::Mavsdk> mavsdk;

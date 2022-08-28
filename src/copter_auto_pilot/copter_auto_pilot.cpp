@@ -4,6 +4,8 @@ copter_auto_pilot::copter_auto_pilot() {
   imageForARtag = cv::Mat(480, 640, CV_8UC3);
   imageForLine = cv::Mat(480, 640, CV_8UC3);
 
+  #ifdef IS_ENABLE_MAVLINK
+
   mavsdk.reset(new mavsdk::Mavsdk);
 
   mavsdk::ConnectionResult connection_result =
@@ -71,6 +73,8 @@ copter_auto_pilot::copter_auto_pilot() {
   thread_mainTask.reset(new std::thread(&copter_auto_pilot::mainTask, this));
   thread_autoModeTask.reset(
       new std::thread(&copter_auto_pilot::autoModeTask, this));
+
+  #endif
 }
 
 copter_auto_pilot::~copter_auto_pilot() {

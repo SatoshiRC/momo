@@ -121,14 +121,21 @@ void copter_auto_pilot::handleImage_ARTag() {
 
   // if at least one marker detected
   if (ids.size() > 0) {
+    if (imageForARtag.rows == 480) {
+      imageSize = (uint8_t)IMAGE_SIZE::VGA;
+    }
     cv::aruco::drawDetectedMarkers(imageForARtag, corners, ids);
     std::vector<cv::Vec3d> rvecs, tvecs;
-    cv::aruco::estimatePoseSingleMarkers(corners, 0.200, cameraMatrix,
-                                         distCoeffs, rvecs, tvecs, outputArry);
+    cv::aruco::estimatePoseSingleMarkers(corners, 0.200,
+                                         cameraMatrix[imageSize], distCoeffs[imageSize], rvecs,
+        tvecs,
+                                         outputArry);
 
     // draw axis for each marker
     for (int i = 0; i < ids.size(); i++)
-      cv::drawFrameAxes(imageForARtag, cameraMatrix, distCoeffs, rvecs[i],
+      cv::drawFrameAxes(imageForARtag, cameraMatrix[imageSize],
+                        distCoeffs[imageSize],
+                        rvecs[i],
                         tvecs[i],
                         0.1);  //evecs回転　tvecs並進
 

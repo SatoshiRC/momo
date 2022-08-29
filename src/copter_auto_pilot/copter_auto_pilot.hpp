@@ -66,12 +66,8 @@ class copter_auto_pilot {
   result_handleImage result_ARTag;
   result_handleImage result_Line;
 
-  const cv::Mat cameraMatrix[2] = {(cv::Mat_<double>(3, 3) << 296.66498, 0, 239.5, 0, 296.66498, 179.5, 0, 0, 1),
-                                   (cv::Mat_<double>(3, 3) << 485.70642, 0, 319.5, 0, 485.70642, 239.5, 0, 0, 1)};
-  const cv::Mat distCoeffs[2] = {
-        (cv::Mat_<double>(1, 5) << 0.0394978, -0.101765, 0, 0, 0),
-        (cv::Mat_<double>(1, 5) << 0.159363, -0.300482, 0, 0, 0)
-  };
+  const cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << 485.70642, 0, 319.5, 0, 485.70642, 239.5, 0, 0, 1);
+  const cv::Mat distCoeffs = (cv::Mat_<double>(1, 5) << 0.159363, -0.300482, 0, 0, 0);
   const cv::Ptr<cv::aruco::Dictionary> dictionary =
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
 
@@ -110,11 +106,6 @@ class copter_auto_pilot {
     SET_POSITION_TARGET_LOCAL_NED = 84,
     MAV_CMD_NAV_TAKEOFF_LOCAL = 24,
     MAV_CMD_NAV_LAND_LOCAL = 23,
-  };
-
-  enum class IMAGE_SIZE : uint8_t {
-      QVGA,
-      VGA,
   };
 };
 

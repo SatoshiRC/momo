@@ -175,7 +175,7 @@ void copter_auto_pilot::handleImage_ARTag() {
             MarkerToCameraPosition.at<float>(2, 0);
         result_ARTag.positionEstimate.angle_body.roll_rad = std::atan2(
             static_cast<float>(-(R.at<float>(2, 1))),
-            static_cast<float>(R.at<float>(2, 2)));  //コンパイルエラー対策
+            static_cast<float>(-R.at<float>(2, 2)));  //コンパイルエラー対策
         result_ARTag.positionEstimate.angle_body.pitch_rad =
             std::asin(static_cast<float>(R.at<float>(2, 0)));
         result_ARTag.positionEstimate.angle_body.yaw_rad =

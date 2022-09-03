@@ -81,13 +81,13 @@ class copter_auto_pilot {
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
   const float MARKER_SIZE;
 
+  cv::Mat imageForARtag;
+  cv::Mat imageForLine;
 
 
   std::shared_ptr<std::thread> thread_mainTask;
   std::shared_ptr<std::thread> thread_autoModeTask;
 
-  cv::Mat imageForARtag;
-  cv::Mat imageForLine;
 
 
   struct  {

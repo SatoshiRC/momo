@@ -66,10 +66,20 @@ class copter_auto_pilot {
   result_handleImage result_ARTag;
   result_handleImage result_Line;
 
-  const cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << 485.70642, 0, 319.5, 0, 485.70642, 239.5, 0, 0, 1);
-  const cv::Mat distCoeffs = (cv::Mat_<double>(1, 5) << 0.159363, -0.300482, 0, 0, 0);
+  const cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << 360,
+                                0,
+                                319.5,
+                                0,
+                                360,
+                                239.5,
+                                0,
+                                0,
+                                1);
+  const cv::Mat distCoeffs =
+      (cv::Mat_<double>(1, 5) << 0.159363, -0.300482, 0, 0, 0);
   const cv::Ptr<cv::aruco::Dictionary> dictionary =
       cv::aruco::getPredefinedDictionary(cv::aruco::DICT_4X4_50);
+  const float MARKER_SIZE;
 
 
 
@@ -95,6 +105,7 @@ class copter_auto_pilot {
   std::shared_ptr<mavsdk::Mocap> mocap;
   std::shared_ptr<mavsdk::System> system;
   std::shared_ptr<mavsdk::MavlinkPassthrough> passthrough;
+  mavsdk::Mocap::VisionPositionEstimate position;
 
   enum class MAVLINK_MESSAGE_ID : uint16_t{
     HEARTBEAT = 0,

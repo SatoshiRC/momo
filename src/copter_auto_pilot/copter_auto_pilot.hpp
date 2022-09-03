@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <array>
 #include <functional>
 #include "mavsdk/mavsdk.h"
 #include "mavsdk/plugins/action/action.h"
@@ -118,6 +119,17 @@ class copter_auto_pilot {
     MAV_CMD_NAV_TAKEOFF_LOCAL = 24,
     MAV_CMD_NAV_LAND_LOCAL = 23,
   };
+
+  class targetPosition {
+   public:
+    targetPosition(double x, double y, double z) : x(x), y(y), z(z){};
+    double x = 0;
+    double y = 0;
+    double z = 0;
+  };
+  const std::array<targetPosition, 3> target = {targetPosition(0, 0, 1),
+                                          targetPosition(0, 22, 1),
+                                          targetPosition(0, 22, 0)};
 };
 
 #endif  //COPTER_AUTO_HPP

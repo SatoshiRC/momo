@@ -1,5 +1,7 @@
 ﻿#include "copter_auto_pilot/copter_auto_pilot.hpp"
 
+#define IS_ENABLE_MAVLINK
+
 copter_auto_pilot::copter_auto_pilot() : MARKER_SIZE(0.148) {
   imageForARtag = cv::Mat(480, 640, CV_8UC3);
   imageForLine = cv::Mat(480, 640, CV_8UC3);
@@ -9,7 +11,7 @@ copter_auto_pilot::copter_auto_pilot() : MARKER_SIZE(0.148) {
   mavsdk.reset(new mavsdk::Mavsdk);
 
   mavsdk::ConnectionResult connection_result =
-      mavsdk.get()->add_any_connection("tcp://192.168.137.29:5760");
+      mavsdk.get()->add_any_connection("tcp://192.168.137.70:5760");
   if (connection_result != mavsdk::ConnectionResult::Success) {
     std::cerr << "Connection failed: " << connection_result << '\n';
     return;
@@ -55,6 +57,7 @@ copter_auto_pilot::copter_auto_pilot() : MARKER_SIZE(0.148) {
   action.reset(new mavsdk::Action(system));
   mocap.reset(new mavsdk::Mocap(system));
   passthrough.reset(new mavsdk::MavlinkPassthrough(system));
+  offboard.reset(new mavsdk::Offboard(system));
 
   passthrough.get()->subscribe_message((uint16_t)MAVLINK_MESSAGE_ID::RC_CHANNELS,
                                        [this](const mavlink_message_t& message){
@@ -63,13 +66,23 @@ copter_auto_pilot::copter_auto_pilot() : MARKER_SIZE(0.148) {
   telemetry.get()->subscribe_position([this](mavsdk::Telemetry::Position position) {
     std::cout << "Altitude: " << position.relative_altitude_m << " m\n";
   });
+  //passthrough.get()->subscribe_message(
+  //    (uint16_t)MAVLINK_MESSAGE_ID::DISTANCE_SENSOR,
+  //    [this](const mavlink_message_t& message) {
+  //      std::cout << mavlink_msg_rc_channels_get_chan7_raw(&message)
+  //                << std::endl;
+  //      this->isAutoMode(mavlink_msg_rc_channels_get_chan7_raw(&message) >=
+  //                       2000);
+  //    });
   passthrough.get()->subscribe_message(
-      (uint16_t)MAVLINK_MESSAGE_ID::DISTANCE_SENSOR,
-      [this](const mavlink_message_t& message) {
-        this->isAutoMode(mavlink_msg_rc_channels_get_chan7_raw(&message) >=
-                         2000);
-      });
-
+      (uint16_t)MAVLINK_MESSAGE_ID::HEARTBEAT, [this](const mavlink_message_t& message) {
+    uint8_t tmp[8];
+    for (uint8_t n = 0; n < 8; n++) {
+      tmp[n] = message.payload64[0] >> (8 * (7 - n));
+    }
+    std::cout << std::to_string(tmp[1]) << "t" << (tmp[1] == 89) << std::endl;
+        this->isAutoMode_ = (tmp[1] == 89);
+  });
   thread_mainTask.reset(new std::thread(&copter_auto_pilot::mainTask, this));
   thread_autoModeTask.reset(
       new std::thread(&copter_auto_pilot::autoModeTask, this));
@@ -89,8 +102,8 @@ void copter_auto_pilot::setImage(cv::Mat& sourceImage) {
   imageForARtag = sourceImage.clone();
   imageForLine = sourceImage.clone();
 
-  //if (isAutoMode_ == true) {
-  if (true) {
+  if (isAutoMode_ == true) {
+  //if (true) {
     std::thread(&copter_auto_pilot::estimatePosition, this).detach();
   }
 }
@@ -103,10 +116,13 @@ void copter_auto_pilot::mainTask() {
 void copter_auto_pilot::autoModeTask() {
   std::unique_lock<std::mutex> lock(isAutoMode_.mutex_autoModeTask);
   isAutoMode_.cond_autoModeTask.wait(lock, [this] { return this->isAutoMode_==true; });
-
-
+  std::cout << "enter auto mode" << std::endl;
+  int count = 0;
   while (isAutoMode_==true) {
-
+    if (this->isReachedTarget(count)) {
+      //count++;
+      sendTarget(count);
+    }
   }
   thread_autoModeTask.reset(
       new std::thread(&copter_auto_pilot::autoModeTask, this));
@@ -116,26 +132,62 @@ void copter_auto_pilot::estimatePosition() {
   std::thread ARTag = std::thread(&copter_auto_pilot::handleImage_ARTag, this);
   std::thread line = std::thread(&copter_auto_pilot::handleImage_Line, this);
 
+  //std::cout << "thread is joinable : " << ARTag.joinable() << std::endl;
   ARTag.join();
-  if (result_ARTag.isValid) {
-    position = result_ARTag.positionEstimate;
-  } else {
-    line.join();
-    if (result_Line.isValid) {
-      position = result_Line.positionEstimate;
-    } else {
-    
+  std::cout << "thread is join"<< std::endl;
+  {
+    std::unique_lock<std::mutex> lock_(result_ARTag.mutex_);
+    bool isARTAgValid = result_ARTag.isValid;
+    if (isARTAgValid) {
+      position = result_ARTag.positionEstimate;
     }
+  }
+
+  std::cout << "[x]=" << position.position_body.x_m
+            << "\t";
+  std::cout << "[y]=" << position.position_body.y_m
+            << "\t";
+  std::cout << "[z]=" << position.position_body.z_m
+            << "\t";
+  std::cout << "[roll]=" << position.angle_body.roll_rad
+            << "\t";
+  std::cout << "[pitch]=" << position.angle_body.pitch_rad
+            << "\t";
+  std::cout << "[yaw]=" << position.angle_body.yaw_rad
+            << "\n";
 #ifdef IS_ENABLE_MAVLINK
     mocap.get()->set_vision_position_estimate(position);
 #endif
-  }
+
+  line.detach();
 
  }
 
+bool copter_auto_pilot::isReachedTarget(int targetCount) {
+    switch (targetCount) { 
+    case 1:
+      break;
+    case 2:
+      break;
+    case 3:
+      break;
+   }
+    
+    
+    return false;
+ }
+
+void copter_auto_pilot::sendTarget(int targetCount) {
+   offboard.get()->set_position_ned(target[targetCount]);
+ }
+
+void copter_auto_pilot::setHomeHere() {
+   mavlink_message_t message;
+  mavlink_msg_set_home_position_pack(255,1,&message,0,0,0,0,0,0,0,0,0,0,0,0);
+   
+ }
+
 void copter_auto_pilot::handleImage_ARTag() {
-
-
   cv::Mat outputArry;
   std::vector<int> ids;  //uint8_t だとバグる
   std::vector<std::vector<cv::Point2f>> corners;
@@ -213,19 +265,6 @@ void copter_auto_pilot::handleImage_ARTag() {
                      static_cast<float>(R.at(kyoriGaTikai).at<float>(0, 0)));
       result_ARTag.isValid = true;
     }
-    
-    std::cout << "[x]=" << result_ARTag.positionEstimate.position_body.x_m
-              << "\t";
-    std::cout << "[y]=" << result_ARTag.positionEstimate.position_body.y_m
-              << "\t";
-    std::cout << "[z]=" << result_ARTag.positionEstimate.position_body.z_m
-              << "\t";
-    std::cout << "[roll]=" << result_ARTag.positionEstimate.angle_body.roll_rad
-              << "\t";
-    std::cout << "[pitch]="
-              << result_ARTag.positionEstimate.angle_body.pitch_rad << "\t";
-    std::cout << "[yaw]=" << result_ARTag.positionEstimate.angle_body.yaw_rad
-              << "\n";
   } else {
     {
       std::unique_lock<std::mutex> lock(result_ARTag.mutex_);

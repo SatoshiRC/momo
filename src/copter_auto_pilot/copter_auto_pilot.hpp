@@ -8,17 +8,19 @@
 #include <mutex>
 #include <thread>
 #include <array>
+#include <cstdint>
 #include <functional>
 #include "mavsdk/mavsdk.h"
 #include "mavsdk/plugins/action/action.h"
 #include "mavsdk/plugins/mavlink_passthrough/mavlink_passthrough.h"
 #include "mavsdk/plugins/mocap/mocap.h"
 #include "mavsdk/plugins/telemetry/telemetry.h"
+#include "mavsdk/plugins/offboard/offboard.h"
 #include "mavlink_include.h"
 #include "opencv2/opencv.hpp"
 #include "opencv2/aruco.hpp"
 
-class copter_auto_pilot {
+class copter_auto_pilot{
  public:
   copter_auto_pilot();
   ~copter_auto_pilot();
@@ -44,9 +46,18 @@ class copter_auto_pilot {
   */
   void autoModeTask();
 
-  void isAutoMode(bool arg) { isAutoMode_ = arg; }
+  void isAutoMode(bool arg) {
+    isAutoMode_ = arg;
+    isAutoMode_.cond_autoModeTask.notify_all();}
 
  private:
+
+  bool isReachedTarget(int targetCount);
+
+  void sendTarget(int targetCount);
+
+  void setHomeHere();
+
   /*
     ARマーカーを検知するタスク
   */
@@ -96,7 +107,10 @@ class copter_auto_pilot {
     std::condition_variable cond_autoModeTask;
     bool isAutoMode_;
     bool operator==(bool arg) { return isAutoMode_ == arg; }
-    void operator=(bool arg) { isAutoMode_ = arg; }
+    void operator=(bool arg) {
+      isAutoMode_ = arg;
+      cond_autoModeTask.notify_all();
+    }
   } isAutoMode_;
 
   //For MAVSDK
@@ -106,7 +120,11 @@ class copter_auto_pilot {
   std::shared_ptr<mavsdk::Mocap> mocap;
   std::shared_ptr<mavsdk::System> system;
   std::shared_ptr<mavsdk::MavlinkPassthrough> passthrough;
+  std::shared_ptr<mavsdk::Offboard> offboard;
   mavsdk::Mocap::VisionPositionEstimate position;
+
+  uint8_t systemId;
+  uint8_t componentId;
 
   enum class MAVLINK_MESSAGE_ID : uint16_t{
     HEARTBEAT = 0,
@@ -118,6 +136,7 @@ class copter_auto_pilot {
     SET_POSITION_TARGET_LOCAL_NED = 84,
     MAV_CMD_NAV_TAKEOFF_LOCAL = 24,
     MAV_CMD_NAV_LAND_LOCAL = 23,
+    SET_HOME_POSITION = 179,
   };
 
   class targetPosition {
@@ -127,9 +146,7 @@ class copter_auto_pilot {
     double y = 0;
     double z = 0;
   };
-  const std::array<targetPosition, 3> target = {targetPosition(0, 0, 1),
-                                          targetPosition(0, 22, 1),
-                                          targetPosition(0, 22, 0)};
+  const std::array<mavsdk::Offboard::PositionNedYaw, 3> target = {(0, 0, -1, 0), (0, 22, -1, 0), (0, 22, 0, 0)};
 };
 
 #endif  //COPTER_AUTO_HPP
